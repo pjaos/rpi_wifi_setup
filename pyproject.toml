@@ -1,0 +1,31 @@
+[project]
+name = "rpi-wifi-setup"
+version = "0.2.1"
+description = ""
+authors = [
+    {name = "Paul Austen",email = "pjaos@gmail.com"}
+]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.14"
+p3lib = "^1.1.154"
+flask = "*"
+smbus = "*"
+"luma.oled" = "*"
+pillow = "*"
+gpiozero = "*"
+watchdog = "^4.0.0"
+
+[tool.poetry]
+packages = [{include = "rpi_wifi_setup", from = "src"}]
+
+[tool.poetry.scripts]
+rpi_wifi_setup = "rpi_wifi_setup.rpi_wifi_setup:main"
+
+[virtualenvs.options]
+system-site-packages = true
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
