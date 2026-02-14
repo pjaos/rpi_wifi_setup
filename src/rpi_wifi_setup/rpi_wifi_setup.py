@@ -81,7 +81,7 @@ class WifiLEDCtrl(threading.Thread):
             elif self._state == WifiLEDCtrl.DISCONNECTED:
                 self.led.off()
 
-            time.sleep(self.interval)
+            sleep(self.interval)
 
     def stop(self):
         self._running = False
@@ -205,9 +205,9 @@ class WiFiSetupManager(object):
 
                 if strength is not None:
                     self._draw_wifi_icon(draw,
-                                        109,
-                                        18,
-                                        strength)
+                                         109,
+                                         18,
+                                         strength)
 
     def _draw_wifi_icon(self, draw, x, y, strength):
         # Draw 4 bars of increasing height
@@ -336,9 +336,9 @@ class WiFiSetupManager(object):
 
         if not self._wifi_led:
             self._device = ssd1309(i2c(port=1,
-                                address=self._options.i2c_address),
-                                width=self._options.display_width,
-                                height=self._options.display_height)
+                                   address=self._options.i2c_address),
+                                   width=self._options.display_width,
+                                   height=self._options.display_height)
 
         self._btn.when_held = self._start_wifi_portal
         self._btn.when_pressed = self._reset_timer
@@ -393,7 +393,7 @@ def main():
         parser.add_argument("-l",
                             "--led_pin",
                             type=int,
-                            help=f"If using an LED rather than an oled display to indicate WiFi connectivity then this argument must be the GPIO pin used to drive the LED.")
+                            help="If using an LED rather than an oled display to indicate WiFi connectivity then this argument must be the GPIO pin used to drive the LED.")
 
         parser.add_argument("-w",
                             "--display_width",

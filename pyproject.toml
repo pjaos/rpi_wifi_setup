@@ -1,6 +1,6 @@
 [project]
 name = "rpi-wifi-setup"
-version = "0.2.1"
+version = "0.3.0"
 description = ""
 authors = [
     {name = "Paul Austen",email = "pjaos@gmail.com"}
