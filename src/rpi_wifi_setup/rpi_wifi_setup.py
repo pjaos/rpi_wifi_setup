@@ -12,7 +12,7 @@ from p3lib.uio import UIO
 from p3lib.helper import logTraceBack, get_assets_dir
 from p3lib.boot_manager import BootManager
 
-from gpiozero import Button
+from gpiozero import Button, LED
 from luma.core.interface.serial import i2c
 from luma.oled.device import ssd1309
 from luma.core.render import canvas
@@ -44,6 +44,51 @@ class OverrideHandler(FileSystemEventHandler):
             self.manager.handle_interrupt_trigger()
 
 
+class WifiLEDCtrl(threading.Thread):
+
+    CONNECTED = 1
+    CONFIGURING = 2
+    DISCONNECTED = 3
+
+    def __init__(self, gpio_pin, interval=0.5):
+        super().__init__()
+        self.led = LED(gpio_pin)
+        self.interval = interval
+        self._running = False
+        self._state = WifiLEDCtrl.DISCONNECTED
+
+    def connected(self):
+        """@called when WiFi is connected to set LED on."""
+        self._state = WifiLEDCtrl.CONNECTED
+
+    def configuring(self):
+        """@called when WiFi is connected to set LED flashing."""
+        self._state = WifiLEDCtrl.CONFIGURING
+
+    def disconnected(self):
+        """@called when WiFi is connected to set LED off."""
+        self._state = WifiLEDCtrl.DISCONNECTED
+
+    def run(self):
+        self._running = True
+        while self._running:
+            if self._state == WifiLEDCtrl.CONNECTED:
+                self.led.on()
+
+            elif self._state == WifiLEDCtrl.CONFIGURING:
+                self.led.toggle()
+
+            elif self._state == WifiLEDCtrl.DISCONNECTED:
+                self.led.off()
+
+            time.sleep(self.interval)
+
+    def stop(self):
+        self._running = False
+        self.join()
+        self.led.off()
+
+
 class WiFiSetupManager(object):
     # --- CONFIG ---
     DEFAULT_BUTTON_PIN = 17  # Change to your GPIO pin
@@ -64,6 +109,7 @@ class WiFiSetupManager(object):
         self._device = None
         self._last_button_press_time = time()
         self._screen_on = True
+        self._wifi_led = None
         self._init()
 
     def _init(self):
@@ -92,6 +138,10 @@ class WiFiSetupManager(object):
         self._observer.schedule(self._event_handler, path="/tmp", recursive=False)
         self._observer.start()
 
+        if self._options.led_pin is not None:
+            self._wifi_led = WifiLEDCtrl(self._options.led_pin)
+            self._wifi_led.start()
+
     def handle_interrupt_trigger(self):
         """Called by the watchdog thread when the file changes"""
         self._reset_timer()  # Wake the screen
@@ -112,17 +162,18 @@ class WiFiSetupManager(object):
 
     def _render_current_state(self):
         """Consolidated rendering logic called by both loop and interrupt"""
-        with self._display_lock:
-            if not self._screen_on:
-                return
+        if not self._wifi_led:
+            with self._display_lock:
+                if not self._screen_on:
+                    return
 
-            msg = self._check_external_message()
-            if msg:
-                self._update_display(msg)
-            elif self._check_internet():
-                self._update_connected_state()
-            else:
-                self._update_display("OFFLINE\nHold button to\nsetup WiFi")
+                msg = self._check_external_message()
+                if msg:
+                    self._update_display(msg)
+                elif self._check_internet():
+                    self._update_connected_state()
+                else:
+                    self._update_display("OFFLINE\nHold button to\nsetup WiFi")
 
     def _check_nmcli_present(self):
         present = False
@@ -146,15 +197,17 @@ class WiFiSetupManager(object):
         return wifi_connect_bin
 
     def _update_display(self, msg, strength=None):
-        with canvas(self._device) as draw:
-            draw.rectangle(self._device.bounding_box, outline="white", fill="black")
-            draw.text((5, 5), msg, fill="white", font=self._font)
+        # update display if not using just a single led to indicate wifi connectivity
+        if self._device:
+            with canvas(self._device) as draw:
+                draw.rectangle(self._device.bounding_box, outline="white", fill="black")
+                draw.text((5, 5), msg, fill="white", font=self._font)
 
-            if strength is not None:
-                self._draw_wifi_icon(draw,
-                                     109,
-                                     18,
-                                     strength)
+                if strength is not None:
+                    self._draw_wifi_icon(draw,
+                                        109,
+                                        18,
+                                        strength)
 
     def _draw_wifi_icon(self, draw, x, y, strength):
         # Draw 4 bars of increasing height
@@ -180,6 +233,8 @@ class WiFiSetupManager(object):
 
     def _start_wifi_portal(self):
         with self._display_lock:
+            if self._wifi_led:
+                self._wifi_led.configuring()
 
             self._update_display(f"Connect to\n{self._options.ssid}\nto setup wifi.")
 
@@ -260,13 +315,14 @@ class WiFiSetupManager(object):
         self._update_display(f"ONLINE\n{ip}\nSignal: {strength}%", strength=strength)
 
     def _set_screen_power(self, on):
-        if on and not self._screen_on:
-            self._device.show()
-            self._screen_on = True
+        if self._device:
+            if on and not self._screen_on:
+                self._device.show()
+                self._screen_on = True
 
-        elif not on and self._screen_on:
-            self._device.hide()
-            self._screen_on = False
+            elif not on and self._screen_on:
+                self._device.hide()
+                self._screen_on = False
 
     def _reset_timer(self):
         self._last_button_press_time = time()
@@ -278,10 +334,11 @@ class WiFiSetupManager(object):
         self._btn = Button(self._options.button_pin,
                            hold_time=WiFiSetupManager.BUTTON_HOLD_SECONDS)
 
-        self._device = ssd1309(i2c(port=1,
-                               address=self._options.i2c_address),
-                               width=self._options.display_width,
-                               height=self._options.display_height)
+        if not self._wifi_led:
+            self._device = ssd1309(i2c(port=1,
+                                address=self._options.i2c_address),
+                                width=self._options.display_width,
+                                height=self._options.display_height)
 
         self._btn.when_held = self._start_wifi_portal
         self._btn.when_pressed = self._reset_timer
@@ -294,9 +351,18 @@ class WiFiSetupManager(object):
                     with self._display_lock:
                         self._set_screen_power(False)
 
-                # Periodic background update (Signal strength/Internet status)
-                if self._screen_on:
-                    self._render_current_state()
+                if self._wifi_led:
+                    with self._display_lock:
+                        if self._check_internet():
+                            self._wifi_led.connected()
+
+                        else:
+                            self._wifi_led.disconnected()
+
+                else:
+                    # Periodic background update (Signal strength/Internet status)
+                    if self._screen_on:
+                        self._render_current_state()
 
                 sleep(10)  # We can sleep longer now because interrupts handle the UI!
         finally:
@@ -323,6 +389,11 @@ def main():
                             type=lambda x: hex(int(x, 16)),
                             help=f"The I2C bus address of the SSD1306 display (default={WiFiSetupManager.DEFAULT_I2C_ADDR:x}).",
                             default=WiFiSetupManager.DEFAULT_I2C_ADDR)
+
+        parser.add_argument("-l",
+                            "--led_pin",
+                            type=int,
+                            help=f"If using an LED rather than an oled display to indicate WiFi connectivity then this argument must be the GPIO pin used to drive the LED.")
 
         parser.add_argument("-w",
                             "--display_width",
