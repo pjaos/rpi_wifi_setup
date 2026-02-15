@@ -46,7 +46,7 @@ The RPi must have bookworm or later OS and have I2C enabled is the oled display 
 
 2. Run the Installer. The install.py and python wheel files from the github release should be copied to the RPi.
 
-'''
+```
 sudo ./install.py rpi_wifi_setup-0.1.0-py3-none-any.whl
 ```
 
@@ -64,6 +64,7 @@ INFO:  Created /etc/systemd/system/rpi_wifi_setup.service
 INFO:  Enabled rpi_wifi_setup.service on restart
 INFO:  Started rpi_wifi_setup.service
 ```
+
 
 ## Usage
 Standard Mode
@@ -163,13 +164,12 @@ options:
   -h, --help            show this help message and exit
 ```
 
-### Architecture
+## Architecture
+Main Loop: 10s heartbeat for signal/network checks (low power).
 
-    Main Loop: 10s heartbeat for signal/network checks (low power).
+Interrupt Thread: watchdog (inotify) monitoring /tmp for zero-latency UI updates.
 
-    Interrupt Thread: watchdog (inotify) monitoring /tmp for zero-latency UI updates.
-
-    Thread Safety: threading.Lock ensures atomic access to the I2C bus between the heartbeat and interrupt triggers.
+Thread Safety: threading.Lock ensures atomic access to the I2C bus between the heartbeat and interrupt triggers.
 
 ### Credits & Acknowledgments
 
