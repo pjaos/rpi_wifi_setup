@@ -1,27 +1,49 @@
-### RPi WiFi Setup Manager
+### RPi WiFi Manager
 
-A robust, headless WiFi provisioning and status tool for Raspberry Pi. This tool manages a captive portal via wifi-connect and provides an interrupt-driven OLED interface for system status and external notifications.
+A WiFi provisioning tool for the Raspberry Pi (RPi).
+
+To setup the Wifi the user holds down a button and a wifi captive portal is started. The user can then connect to the RPi wifi hotspot (captive portal) using a mobile or tablet. Once connected the user is automatically presented with the ability to select the WiFi SSID and enter the password to connect the Raspberry Pi a Wifi network.
+
+# Features
+
+- An [oled (12 x 64)](https://www.amazon.co.uk/s?k=oled+display+arduino+128+x+64&crid=3I23B4EH9PBEX&sprefix=oled+display+arduino+128+x+64%2Caps%2C114&ref=nb_sb_noss_1) display is supported. This will display the Online/Offline status, IP address and WiFi signal strength.
+- If the oled display is connected then a file system interface is available to allow other apps to send data to the oled display.
+- Optionally allows a single LED to display the WiFi connectivity if no oled display is connected.
+- Supports aarch64 and armv7 architectures.
 
 ## Hardware Requirements
 
+# With oled display
+
+- Button: Momentary switch (Default: GPIO 17). 5s hold for portal, tap to wake.
+
  - Display: 128 x 64 SSD1309 / SSD1306 OLED (I2C). Click [here](https://www.amazon.co.uk/s?k=oled+display+arduino+128+x+64&crid=3I23B4EH9PBEX&sprefix=oled+display+arduino+128+x+64%2Caps%2C114&ref=nb_sb_noss_1) for an examples.
 
-    Button: Momentary switch (Default: GPIO 17). 5s hold for portal, tap to wake.
-
-## Installation & Versions
-
-This project is packaged with Poetry and managed via a custom install script that handles virtual environments and version switching.
-1. System Prep
-
-The RPi must have bookworm or later OS and have I2C enabled. The raspi-config can be used to enable I2C.
-
-The RPI should be connected as shown below
+The RPI should be connected as shown below. Any valid GPIO pin can be connected to the button.
 
 ![RPI Connections](images/rpi_con.png)
 
+# Without oled display
+
+- Button: Momentary switch (Default: GPIO 17). 5s hold for portal, tap to wake.
+
+- An LED connected to a GPIO pin on the  RPi interface connector
+
+The RPI should be connected as shown below. Any valid GPIO pins can be connected to the button and LED.
+
+![RPI Connections](images/single_led.png)
+
+## Installation & Versions
+
+This project is supplied with custom install script that handles virtual environment creation and and version switching.
+
+1. System Prep
+
+The RPi must have bookworm or later OS and have I2C enabled is the oled display is connected. The raspi-config can be used to enable I2C (raspi-config tool can be used to enable I2C).
+
 2. Run the Installer
 
- - Copy the install.py and python wheel file should be copied to the Rpi.
+ - The install.py and python wheel files from the github release should be copied to the RPi.
 
  - Run 'sudo ./install.py rpi_wifi_setup-0.1.0-py3-none-any.whl' (filename version may change) as root user to install.
 
@@ -45,17 +67,28 @@ The screen displays ONLINE/OFFLINE status, the IP Address, and a Signal Strength
 
 # Setting up RPi WiFi
 
+- When the WiFi is not connected the oled display will show
+
+![RPI Connections](images/oled_wifi_offline.jpg)
+
+If no oled display is connected the LED will be off.
+
 - Hold down the button for 5 seconds. The oled display will show
 
-```
-Connect to
-RPi-Setup
-to setup wifi
-```
+![RPI Connections](images/oled_connect_to_hotspot.jpg)
 
-- Using a mobile or tablet connect to the hotspot named 'RPi-Setup'. You will be prompted to sign in to network. Select the SSID of the Wifi network that you wish the RPi to connect to along with the associated password. Select the Connect button.
+If no oled display is connected the LED will be flashing to indicate setup mode.
 
-- When connected the oled display on the RPi will show the online state, it's IP address and the WiFi signal level.
+- Using a mobile or tablet connect to the hotspot named 'RPi-Setup'. You will be prompted to sign in to the WiFi network. Select the SSID of the Wifi network that you wish the RPi to connect from the dropdown list and enter its password.
+
+![RPI Connections](images/oled_wifi_setup_page.png)
+
+- Select the Connect button.
+
+![RPI Connections](images/oled_wifi_connected.jpg)
+
+If no oled display is connected the LED will be on to indicate the Wifi is connected.
+
 
 # External App Integration (Override)
 
@@ -75,7 +108,7 @@ rm /tmp/oled_override.txt
 
 
 ## CLI Arguments
-The command line help is displayed if the -h argument is used on the command line.
+The command line help is displayed if the -h argument is used on the command line as shown below.
 
 ```
 rpi_wifi_setup -h
