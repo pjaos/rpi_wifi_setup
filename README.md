@@ -17,7 +17,7 @@ To setup the Wifi the user holds down a button and a wifi captive portal is star
 
 - Button: Momentary switch (Default: GPIO 17). 5s hold for portal, tap to wake.
 
- - Display: 128 x 64 SSD1309 / SSD1306 OLED (I2C). Click [here](https://www.amazon.co.uk/s?k=oled+display+arduino+128+x+64&crid=3I23B4EH9PBEX&sprefix=oled+display+arduino+128+x+64%2Caps%2C114&ref=nb_sb_noss_1) for an examples.
+ - Display: 128 x 64 SSD1309 / SSD1306 OLED (I2C).
 
 The RPI should be connected as shown below. Any valid GPIO pin can be connected to the button.
 
@@ -33,6 +33,9 @@ The RPI should be connected as shown below. Any valid GPIO pins can be connected
 
 ![RPI Connections](images/single_led.png)
 
+When starting the rpi_wifi_setup command use the '--led_pin' argument followed by the GPIO pin you have an LED connected to.
+The LED will be used to display WiFi connectivity not an oled display.
+
 ## Installation & Versions
 
 This project is supplied with custom install script that handles virtual environment creation and and version switching.
@@ -41,15 +44,17 @@ This project is supplied with custom install script that handles virtual environ
 
 The RPi must have bookworm or later OS and have I2C enabled is the oled display is connected. The raspi-config can be used to enable I2C (raspi-config tool can be used to enable I2C).
 
-2. Run the Installer
+2. Run the Installer. The install.py and python wheel files from the github release should be copied to the RPi.
 
- - The install.py and python wheel files from the github release should be copied to the RPi.
+'''
+sudo ./install.py rpi_wifi_setup-0.1.0-py3-none-any.whl
+```
 
- - Run 'sudo ./install.py rpi_wifi_setup-0.1.0-py3-none-any.whl' (filename version may change) as root user to install.
+The filename version may change.
 
 3. Service Control
 
-As root user run
+To cause the rpi_wifi_setup command to run when the RPi starts up run
 
 ```
 sudo rpi_wifi_setup --enable_auto_start
@@ -63,15 +68,17 @@ INFO:  Started rpi_wifi_setup.service
 ## Usage
 Standard Mode
 
-The screen displays ONLINE/OFFLINE status, the IP Address, and a Signal Strength icon. The screen sleeps after 120s (default) to prevent OLED burn-in.
+The screen displays ONLINE/OFFLINE status, the IP Address, and a Signal Strength icon.
+
+The screen sleeps after 120s (default) to prevent OLED burn-in. A quick press on the button wakes the screen.
 
 # Setting up RPi WiFi
 
-- When the WiFi is not connected the oled display will show
+- When the WiFi is not connected the oled display shows
 
 ![RPI Connections](images/oled_wifi_offline.jpg)
 
-If no oled display is connected the LED will be off.
+If no oled display is connected then the LED will be off.
 
 - Hold down the button for 5 seconds. The oled display will show
 
@@ -83,7 +90,7 @@ If no oled display is connected the LED will be flashing to indicate setup mode.
 
 ![RPI Connections](images/oled_wifi_setup_page.png)
 
-- Select the Connect button.
+- Select the Connect button and when the RPi connects to the WiFi network the oled display shows ( The IP address may change).
 
 ![RPI Connections](images/oled_wifi_connected.jpg)
 
@@ -96,7 +103,8 @@ The app now supports an interrupt-driven "Mailbox" feature. Any application on t
 
     Override Path: /tmp/oled_override.txt
 
-    Behavior: Writing to this file triggers an instant kernel interrupt (inotify). The manager wakes the screen, ignores WiFi status, and displays the file's text.
+    Behavior: Writing to this file triggers an instant kernel interrupt (inotify).
+    The manager wakes the screen, ignores WiFi status, and displays the file's text.
 
     Reverting: Deleting the file instantly returns the display to the standard WiFi/IP status screen.
 
@@ -112,8 +120,7 @@ The command line help is displayed if the -h argument is used on the command lin
 
 ```
 rpi_wifi_setup -h
-usage: rpi_wifi_setup [-h] [-b BUTTON_PIN] [-a I2C_ADDRESS] [-w DISPLAY_WIDTH] [-v DISPLAY_HEIGHT]
-                      [-s SSID] [-p PASSWORD] [-o SCREEN_OFF_SECONDS] [-d] [--enable_auto_start]
+usage: rpi_wifi_setup [-h] [-b BUTTON_PIN] [-a I2C_ADDRESS] [-l LED_PIN] [-w DISPLAY_WIDTH] [-v DISPLAY_HEIGHT] [-s SSID] [-p PASSWORD] [-o SCREEN_OFF_SECONDS] [-d] [--enable_auto_start]
                       [--disable_auto_start] [--check_auto_start]
 
 Linux WiFi provisioning tool.
@@ -124,6 +131,8 @@ options:
                         The GPIO pin that the WiFi button is connected to (default = 17).
   -a, --i2c_address I2C_ADDRESS
                         The I2C bus address of the SSD1306 display (default=3c).
+  -l, --led_pin LED_PIN
+                        If using an LED rather than an oled display to indicate WiFi connectivity then this argument must be the GPIO pin used to drive the LED.
   -w, --display_width DISPLAY_WIDTH
                         The display width in pixels (default = 128).
   -v, --display_height DISPLAY_HEIGHT
@@ -137,6 +146,21 @@ options:
   --enable_auto_start   Auto start when this computer starts.
   --disable_auto_start  Disable auto starting when this computer starts.
   --check_auto_start    Check the running status.
+```
+
+The install.py command also has command line help as shown below.
+
+```
+/install.py -h
+usage: install.py [-h] {install,uninstall,status,switch} ...
+
+rpi_wifi_setup: install is the default command.
+
+positional arguments:
+  {install,uninstall,status,switch}
+
+options:
+  -h, --help            show this help message and exit
 ```
 
 ### Architecture
