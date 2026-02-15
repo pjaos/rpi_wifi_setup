@@ -131,17 +131,6 @@ class WiFiSetupManager(object):
         if os.geteuid() != 0:
             raise Exception("This program must be executed as root user.")
 
-        # Setup the Interrupt Observer for filesystem changes
-        self._event_handler = OverrideHandler(self)
-        self._observer = Observer()
-        # Monitor /tmp for changes
-        self._observer.schedule(self._event_handler, path="/tmp", recursive=False)
-        self._observer.start()
-
-        if self._options.led_pin is not None:
-            self._wifi_led = WifiLEDCtrl(self._options.led_pin)
-            self._wifi_led.start()
-
     def handle_interrupt_trigger(self):
         """Called by the watchdog thread when the file changes"""
         self._reset_timer()  # Wake the screen
@@ -238,6 +227,8 @@ class WiFiSetupManager(object):
 
             self._update_display(f"Connect to\n{self._options.ssid}\nto setup wifi.")
 
+            self._ensure_wifi_on()
+
             # -u points to the UI files
             # --portal-ssid is the name your phone will see
             cmd = [
@@ -328,17 +319,36 @@ class WiFiSetupManager(object):
         self._last_button_press_time = time()
         self._set_screen_power(True)
 
+    def _ensure_wifi_on(self):
+        # Ensure WiFi is turned on
+        cmd = ["nmcli", "radio", "wifi", "on"]
+        subprocess.run(cmd, check=True)
+
     def run(self):
 
         # Hardware Setup
         self._btn = Button(self._options.button_pin,
                            hold_time=WiFiSetupManager.BUTTON_HOLD_SECONDS)
 
-        if not self._wifi_led:
+        if self._options.led_pin is not None:
+            self._wifi_led = WifiLEDCtrl(self._options.led_pin)
+            self._wifi_led.start()
+
+        else:
             self._device = ssd1309(i2c(port=1,
                                    address=self._options.i2c_address),
                                    width=self._options.display_width,
                                    height=self._options.display_height)
+
+            # We only look at the file system for display text updates if the display is connected.
+            # Setup the Interrupt Observer for filesystem changes
+            self._event_handler = OverrideHandler(self)
+            self._observer = Observer()
+            # Monitor /tmp for changes
+            self._observer.schedule(self._event_handler, path="/tmp", recursive=False)
+            self._observer.start()
+
+        self._ensure_wifi_on()
 
         self._btn.when_held = self._start_wifi_portal
         self._btn.when_pressed = self._reset_timer
@@ -366,8 +376,9 @@ class WiFiSetupManager(object):
 
                 sleep(10)  # We can sleep longer now because interrupts handle the UI!
         finally:
-            self._observer.stop()
-            self._observer.join()
+            if self._observer:
+                self._observer.stop()
+                self._observer.join()
 
 
 def main():
